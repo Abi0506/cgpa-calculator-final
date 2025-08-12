@@ -25,7 +25,7 @@ def calculate_sgpa_cgpa(df):
         sem_df = df[df['CURRSEMS'] == sem]
         if not sem_df.empty:
             sgpa_series = sem_df.groupby('715521YYYYYY').apply(
-                lambda x: round((x['Credits'] * x['GradePoints']).sum() / x['Credits'].sum(), 2)
+                lambda x: round((x['Credits'] * x['GradePoints']).sum() / x['Credits'].sum(), 3)
                 if x['Credits'].sum() > 0 else "-"
             )
         else:
@@ -71,6 +71,8 @@ def format_excel_center(file_path):
     wb.save(file_path)
 
 def select_file():
+
+    global result_df
     file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx *.xls")])
     if not file_path:
         return
@@ -102,21 +104,30 @@ def select_file():
         df["Credits"] = pd.to_numeric(df["Credits"], errors="coerce")
 
         result_df = calculate_sgpa_cgpa(df)
-
-        # Save output Excel with timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        output_filename = f"SGPA_CGPA_Output_{timestamp}.xlsx"
-        output_path = os.path.join(os.path.dirname(file_path), output_filename)
-        result_df.to_excel(output_path, index=False)
-
-        # Format Excel
-        format_excel_center(output_path)
-
-        # Show in Tkinter table
         show_table(result_df)
+        btn_download.config(state="normal")  # Enable download button
+        messagebox.showinfo("Success", "SGPA & CGPA calculated!\nClick 'Download Excel' to save the file.")
 
-        messagebox.showinfo("Success", f"SGPA & CGPA calculated!\nSaved to: {output_path}")
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+def download_excel():
+    global result_df
+    if result_df is None:
+        messagebox.showerror("Error", "No data to download. Please select and process a file first.")
+        return
 
+    save_path = filedialog.asksaveasfilename(
+        defaultextension=".xlsx",
+        filetypes=[("Excel files", "*.xlsx *.xls")],
+        initialfile="SGPA_CGPA_Output.xlsx"
+    )
+    if not save_path:
+        return
+
+    try:
+        result_df.to_excel(save_path, index=False)
+        format_excel_center(save_path)
+        messagebox.showinfo("Success", f"File saved to: {save_path}")
     except Exception as e:
         messagebox.showerror("Error", str(e))
 
@@ -135,6 +146,7 @@ def show_table(df):
     for _, row in df.iterrows():
         tree.insert("", "end", values=list(row))
 
+
 root = tk.Tk()
 root.title("SGPA & CGPA Calculator")
 root.geometry("900x600")  # Not full screen
@@ -142,7 +154,12 @@ root.geometry("900x600")  # Not full screen
 btn_select = tk.Button(root, text="Select Excel File", command=select_file)
 btn_select.pack(pady=10)
 
+btn_download = tk.Button(root, text="Download Excel", command=download_excel, state="disabled")
+btn_download.pack(pady=5)
+
 frame_table = tk.Frame(root)
 frame_table.pack(fill='both', expand=True)
+
+result_df = None  # Initialize global variable
 
 root.mainloop()
